@@ -20,8 +20,6 @@
 import typing
 import bittensor as bt
 
-# TODO(developer): Rewrite with your protocol definition.
-
 # This is the protocol for the dummy miner and validator.
 # It is a simple request-response protocol where the validator sends a request
 # to the miner, and the miner responds with a dummy response.
@@ -48,16 +46,19 @@ class Dummy(bt.Synapse):
 
     Attributes:
     - dummy_input: An integer value representing the input request sent by the validator.
-    - dummy_output: An optional integer value which, when filled, represents the response from the miner.
+    - dummy_output: An optional list of values which, when filled, represents the response from the miner.
     """
 
     # Required request input, filled by sending dendrite caller.
     dummy_input: int
 
-    # Optional request output, filled by recieving axon.
-    dummy_output: typing.Optional[int] = None
+    # Required request input, filled by time elapse to process the data and send a response
+    time_elapse: int
 
-    def deserialize(self) -> int:
+    # Optional request output, filled by recieving axon.
+    dummy_output: typing.Optional[dict] = {}
+
+    def deserialize(self) -> dict:
         """
         Deserialize the dummy output. This method retrieves the response from
         the miner in the form of dummy_output, deserializes it and returns it
@@ -69,8 +70,8 @@ class Dummy(bt.Synapse):
         Example:
         Assuming a Dummy instance has a dummy_output value of 5:
         >>> dummy_instance = Dummy(dummy_input=4)
-        >>> dummy_instance.dummy_output = 5
+        >>> dummy_instance.dummy_output = { data: [5], execution_time: 0.01 }
         >>> dummy_instance.deserialize()
-        5
+        { data: [4], execution_time: 0.01 }
         """
         return self.dummy_output

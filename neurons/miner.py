@@ -1,7 +1,7 @@
 # The MIT License (MIT)
 # Copyright © 2023 Yuma Rao
-# TODO(developer): Set your name
-# Copyright © 2023 <your name>
+# developer: Samir Tapiero
+# Copyright © 2024 <Samir Tapiero>
 
 # Permission is hereby granted, free of charge, to any person obtaining a copy of this software and associated
 # documentation files (the “Software”), to deal in the Software without restriction, including without limitation
@@ -17,6 +17,7 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+import hashlib
 import time
 import typing
 import bittensor as bt
@@ -42,6 +43,55 @@ class Miner(BaseMinerNeuron):
 
         # TODO(developer): Anything specific to your use case you can do here
 
+    def hashing_data(self, data: str, time_elapse: int):
+        start_time = time.monotonic()
+        hashes = []
+        if data is None:
+            bt.logging.info("Empty data to process..")
+            return hashes
+
+        time_end = start_time + time_elapse
+        for hash_method in hashlib.algorithms_available:
+            try:
+                if time.monotonic() > time_end:
+                    bt.logging.info("finish time")
+                    break
+
+                response = self.generate_hash(data, time_elapse, hash_method=hash_method)
+                hashes.append(response)
+            except:
+                continue
+
+        execution_time = time.monotonic() - start_time
+
+        return { "response": hashes, "execution_time": execution_time }
+
+    def generate_hash(self, data: int, time_elapse: int, hash_method="sha512"):
+        start_time = time.monotonic()
+        hashed_data = ""
+        nonce = ""
+        iteration = 0
+
+        time_end = start_time + time_elapse
+        if data is None:
+            bt.logging.info("Empty data to process..")
+            return {}
+
+        while not hashed_data.startswith("0000"):
+            if time.monotonic() > time_end:
+                bt.logging.info("finish time")
+                break
+
+            nonce = f"{data}{iteration}"
+            algorithm = hashlib.new(hash_method)
+            algorithm.update(nonce.encode())
+            hashed_data = algorithm.hexdigest()
+            iteration = iteration + 1
+
+        execution_time = time.monotonic() - start_time
+
+        return { "hash": hashed_data, "nonce": nonce,  "execution_time": execution_time }
+
     async def forward(
         self, synapse: template.protocol.Dummy
     ) -> template.protocol.Dummy:
@@ -58,8 +108,12 @@ class Miner(BaseMinerNeuron):
         The 'forward' function is a placeholder and should be overridden with logic that is appropriate for
         the miner's intended operation. This method demonstrates a basic transformation of input data.
         """
-        # TODO(developer): Replace with actual implementation logic.
-        synapse.dummy_output = synapse.dummy_input * 2
+        bt.logging.info(f"Procesing the input: {synapse.dummy_input}, with time elapse: {synapse.time_elapse}")
+        # synapse.dummy_output = self.hashing_data(synapse.dummy_input, synapse.time_elapse)
+        output = self.generate_hash(synapse.dummy_input, synapse.time_elapse)
+        bt.logging.info(f"Output from miner: {output}")
+        synapse.dummy_output = output
+
         return synapse
 
     async def blacklist(
@@ -154,7 +208,7 @@ class Miner(BaseMinerNeuron):
 
 # This is the main function, which runs the miner.
 if __name__ == "__main__":
-    with Miner() as miner:
+    with Miner() as m:
         while True:
-            bt.logging.info("Miner running...", time.time())
+            bt.logging.info(f"Miner running:: network: {m.subtensor.network} | block: {m.block} | step: {m.step} | uid: {m.uid} | last updated: {m.block-m.metagraph.last_update[m.uid]} | trust: {m.metagraph.trust[m.uid]:.3f} | emission {m.metagraph.emission[m.uid]:.3f}")
             time.sleep(5)

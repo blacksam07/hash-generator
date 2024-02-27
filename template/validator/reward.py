@@ -17,11 +17,12 @@
 # OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER
 # DEALINGS IN THE SOFTWARE.
 
+from hashlib import sha512
 import torch
 from typing import List
 
 
-def reward(query: int, response: int) -> float:
+def reward(query: int, response: object) -> float:
     """
     Reward the miner response to the dummy request. This method returns a reward
     value for the miner, which is used to update the miner's score.
@@ -29,8 +30,24 @@ def reward(query: int, response: int) -> float:
     Returns:
     - float: The reward value for the miner.
     """
+    reward: float = 1.0
+    if response is None:
+        return 0
 
-    return 1.0 if response == query * 2 else 0
+    # Check the requirement that contain the number of zeros taht we need
+    # and check the response based on the nonce
+    if response and response["hash"].startswith("0000"):
+        encoded = sha512(response["nonce"].encode()).hexdigest()
+        if response["hash"] == encoded:
+            return reward
+        else:
+            return reward / 2
+    elif response and response["hash"].startswith("0"):
+        # Check the number of zeros that miner found and set a reward based on that
+        zero_count = len(response["hash"]) - len(response["hash"].lstrip('0'))
+        return reward * (zero_count * 0.01)
+    else:
+        return 0
 
 
 def get_rewards(
@@ -43,12 +60,15 @@ def get_rewards(
 
     Args:
     - query (int): The query sent to the miner.
-    - responses (List[float]): A list of responses from the miner.
+    - responses (List[objects]): A list of responses from the miner.
 
     Returns:
     - torch.FloatTensor: A tensor of rewards for the given query and responses.
     """
     # Get all the reward results by iteratively calling your reward() function.
+    # Sort all miner response to get the faster response
+    # filter_responses = list(filter(lambda item: item is not None, responses))
+    # sorted_response = sorted(responses, key=lambda res: res["execution_time"])
     return torch.FloatTensor(
         [reward(query, response) for response in responses]
     ).to(self.device)
